@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Uploader & Downloader</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    /* ✅ FIX: Prevent input stretching */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #eef2f7, #d9e4f5);
+      margin: 0;
+      padding: 15px;
+    }
+
+    .container {
+      max-width: 750px;
+      margin: 20px auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #222;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    h2 {
+      color: #444;
+      margin-top: 20px;
+      font-size: 18px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    input:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: 0.3s;
+      margin-top: 5px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background: #f8f9fb;
+      margin: 6px 0;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    li:hover {
+      background: #eef3ff;
+    }
+
+    .download-btn {
+      background-color: #28a745;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .download-btn:hover {
+      background-color: #1e7e34;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .success {
+      color: green;
+    }
+
+    .error {
+      color: red;
+    }
+
+    /* Mobile optimization */
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 15px;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      h2 {
+        font-size: 16px;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+      }
+
+      li {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .download-btn {
+        width: 100%;
+        text-align: center;
+      }
+    }
+
+    .footer {
+  text-align: center;
+  border-top: 1px solid #eee;
+  color: #666;
+  font-size: 14px;
+ }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>File Manager</h1>
+
+    <div class="section">
+      <h2>Upload File</h2>
+      <input type="file" id="fileInput" />
+      <button onclick="uploadFile()">Upload</button>
+      <div id="uploadStatus" class="status"></div>
+    </div>
+
+    <div class="section">
+      <h2>Download File</h2>
+      <input type="text" id="downloadFileName" placeholder="Enter file name (e.g. test.txt)" />
+      <button onclick="downloadFile()">Download</button>
+    </div>
+
+    <div class="section">
+      <h2>Available Files</h2>
+      <button onclick="loadFiles()">Refresh List</button>
+      <ul id="fileList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:5000";
+
+    // Upload file
+    async function uploadFile() {
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+      const status = document.getElementById("uploadStatus");
+
+      if (!file) {
+        alert("Please select a file");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch(`${API_URL}/upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (res.ok) {
+          status.textContent = "Upload successful!";
+          status.className = "status success";
+        } else {
+          status.textContent = "Upload failed!";
+          status.className = "status error";
+        }
+
+        loadFiles();
+      } catch (err) {
+        status.textContent = "Upload failed (server error)";
+        status.className = "status error";
+        console.error(err);
+      }
+    }
+
+    // Download file
+    function downloadFile() {
+      const fileName = document.getElementById("downloadFileName").value;
+
+      if (!fileName) {
+        alert("Enter a file name");
+        return;
+      }
+
+      window.location.href = `${API_URL}/download/${fileName}`;
+    }
+
+    // Load file list
+    async function loadFiles() {
+      try {
+        const res = await fetch(`${API_URL}/files`);
+        const files = await res.json();
+
+        const list = document.getElementById("fileList");
+        list.innerHTML = "";
+
+        if (files.length === 0) {
+          list.innerHTML = "<li>No files uploaded yet</li>";
+          return;
+        }
+
+        files.forEach(file => {
+          const li = document.createElement("li");
+
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = file;
+
+          const downloadBtn = document.createElement("button");
+          downloadBtn.textContent = "Download";
+          downloadBtn.className = "download-btn";
+          downloadBtn.onclick = () => {
+            window.location.href = `${API_URL}/download/${file}`;
+          };
+
+          li.appendChild(nameSpan);
+          li.appendChild(downloadBtn);
+          list.appendChild(li);
+        });
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Initial load
+    loadFiles();
+  </script>
+
+  <footer class="footer">
+  <p>© 2026 File Manager | Built with Node.js & TypeScript</p>
+</footer>
+
+</body>
+</html>
